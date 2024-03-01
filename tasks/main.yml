@@ -70,7 +70,8 @@
   # for get_certificate
   delegate_to: "{{ (ansible_connection | lower == 'winrm') | ternary('127.0.0.1', inventory_hostname) }}"
   failed_when:
-    - cert.msg is defined AND NOT 'Cannot detect the required Python library cryptography' in cert.msg
+    - cert.msg is defined
+    - NOT cert.msg.find('required Python library')
   tags:
     - cert_checker_get_certificate
 
@@ -83,7 +84,7 @@
   delegate_to: "127.0.0.1"
   when:
     - cert.msg is defined
-    - 'Cannot detect the required Python library cryptography' in cert.msg
+    - '"Cannot detect the required Python library cryptography" in cert.msg'
   tags:
     - cert_checker_get_certificate
 
