@@ -69,7 +69,7 @@
   # Only attempt remote connections for Windows
   # because we need python cryptography >= 1.6
   # for get_certificate
-  delegate_to: (ansible_connection | lower == 'winrm') | ternary('127.0.0.1', inventory_hostname)
+  delegate_to: "{{ (ansible_connection | lower == 'winrm') | ternary('127.0.0.1', inventory_hostname) }}"
   tags:
     - cert_checker_get_certificate
 
