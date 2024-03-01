@@ -118,6 +118,11 @@
   tags:
     - cert_checker_csv_header
 
+- name: Debug cert at verbosity 2
+  ansible.builtin.debug:
+    var: cert
+    verbosity: 2
+
 - name: Handle cert findings, if there are any.
   when:
     - cert.not_after is defined
