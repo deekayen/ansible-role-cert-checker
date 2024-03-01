@@ -131,7 +131,7 @@
         port: "{{ cert_checker_email_port }}"
         to: "{{ cert_checker_email }}"
         subject: "{{ owner_id | default('Certificate') }} expiration report"
-        body: "{{ lookup('file', tempfile_hosts_certs.path) }}"
+        body: "{{ lookup('file', attachment_tempfile_hosts_certs.path) }}"
         attach: "{{ attachment_tempfile_hosts_certs.path }}"
       run_once: true
       delegate_to: 127.0.0.1
@@ -149,3 +149,11 @@
   when: attachment_tempfile_hosts_certs.path is defined
   tags:
     - cert_checker_cleanup
+
+- name: Print cert
+  ansible.builtin.debug:
+    var: hostvars
+    verbosity: 2
+  run_once: true
+  tags:
+    - cert_checker_debug
