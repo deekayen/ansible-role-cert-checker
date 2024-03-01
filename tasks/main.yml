@@ -69,6 +69,21 @@
   # because we need python cryptography >= 1.6
   # for get_certificate
   delegate_to: "{{ (ansible_connection | lower == 'winrm') | ternary('127.0.0.1', inventory_hostname) }}"
+  failed_when:
+    - cert.msg is defined AND NOT 'Cannot detect the required Python library cryptography' in cert.msg
+  tags:
+    - cert_checker_get_certificate
+
+# Do this instead of trying to install python cryptography libs on every endpoint.
+- name: Fallback to remote host cert retrieval
+  community.crypto.get_certificate:
+    host: "{{ ansible_fqdn }}"
+    port: "{{ cert_checker_tls_port }}"
+  register: cert
+  delegate_to: "127.0.0.1"
+  when:
+    - cert.msg is defined
+    - 'Cannot detect the required Python library cryptography' in cert.msg
   tags:
     - cert_checker_get_certificate
 
