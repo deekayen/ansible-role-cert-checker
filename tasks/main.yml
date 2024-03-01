@@ -59,8 +59,8 @@
   register: crypto_requirement
 
 - name: Query certificate by loopback
-  block:
   when: crypto_requirement.not_found is not defined or (crypto_requirement.not_found | length) == 0
+  block:
   # This delegates to the ansible controller for Windows
   - name: Get a cert from an https port
     community.crypto.get_certificate:
@@ -77,10 +77,10 @@
       - cert_checker_get_certificate
 
 - name: Pull certificates remotely when crypto libs are not found
-  block:
   when:
     - crypto_requirement.not_found is defined
     - '"cryptography" in crypto_requirement.not_found'
+  block:
   # Do this instead of trying to install python cryptography libs on every endpoint.
   - name: Fallback to remote host cert retrieval
     community.crypto.get_certificate:
