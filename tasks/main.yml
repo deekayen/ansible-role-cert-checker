@@ -65,7 +65,7 @@
   delegate_to: "{{ (ansible_connection | lower == 'winrm') | ternary('127.0.0.1', inventory_hostname) }}"
   failed_when:
     - cert.msg is defined
-    - NOT cert.msg is search('required Python library')
+    - '"required Python library" not in cert.msg'
   tags:
     - cert_checker_get_certificate
 
