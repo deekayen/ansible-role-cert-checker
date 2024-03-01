@@ -178,11 +178,3 @@
   when: attachment_tempfile_hosts_certs.path is defined
   tags:
     - cert_checker_cleanup
-
-- name: Print cert
-  ansible.builtin.debug:
-    var: hostvars
-    verbosity: 2
-  run_once: true
-  tags:
-    - cert_checker_debug
