@@ -101,7 +101,7 @@
 - name: Add header line to the body
   ansible.builtin.lineinfile:
     path: "{{ body_tempfile_hosts_certs.path }}"
-    line: "<table><tr><td>FQDN</td><td>CN</td><td>days</td><td>timestamp</td><td>port</td></tr>""
+    line: "<table><tr><td>FQDN</td><td>CN</td><td>days</td><td>timestamp</td><td>port</td></tr>"
   run_once: true
   delegate_to: 127.0.0.1
   tags:
