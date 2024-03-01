@@ -59,14 +59,17 @@
 #                       =@@@@@@@*.*@@@@@@@:
 
 
-# This delegates to the ansible controller
-# because we need python cryptography >= 1.6
+# This delegates to the ansible controller for Windows
 - name: Get a cert from an https port
   community.crypto.get_certificate:
     host: "{{ ansible_fqdn }}"
     port: "{{ cert_checker_tls_port }}"
   register: cert
   ignore_errors: true
+  # Only attempt remote connections for Windows
+  # because we need python cryptography >= 1.6
+  # for get_certificate
+  delegate_to: (ansible_connection | lower == 'winrm') | ternary('127.0.0.1', inventory_hostname)
   tags:
     - cert_checker_get_certificate
 
@@ -81,14 +84,14 @@
   ansible.builtin.tempfile:
     state: file
   run_once: true
-  register: tempfile_hosts_certs
+  register: attachment_tempfile_hosts_certs
   delegate_to: 127.0.0.1
   tags:
     - cert_checker_tempfile
 
 - name: Add header line to the CSV file.
   ansible.builtin.lineinfile:
-    path: "{{ tempfile_hosts_certs.path }}"
+    path: "{{ attachment_tempfile_hosts_certs.path }}"
     line: "FQDN,CN,expiration,timestamp,port"
   run_once: true
   delegate_to: 127.0.0.1
@@ -108,7 +111,7 @@
 
     - name: Add expiration information to the temp file
       ansible.builtin.lineinfile:
-        path: "{{ tempfile_hosts_certs.path }}"
+        path: "{{ attachment_tempfile_hosts_certs.path }}"
         line: "{{ ansible_fqdn }},{{ cert.subject.CN }},{{ expire_days }},{{ cert.not_after }},{{ cert_checker_tls_port }}"
       delegate_to: 127.0.0.1
       # these are actually treated as AnsibleUnsafeText unless you convert them
@@ -116,15 +119,20 @@
       tags:
         - cert_checker_csv_row
 
+    - name: Rename the temp file to CSV
+      ansible.builtin.copy:
+        src: "{{ attachment_tempfile_hosts_certs.path }}"
+        dest: "{{ attachment_tempfile_hosts_certs.path | dirname}}/expiring_certificates.csv"
+
     - name: Email the results
       community.general.mail:
-        sender: "Ansible cert_checker by deekayen"
+        sender: "{{ cert_checker_email_sender }}"
         host: "{{ cert_checker_email_host }}"
         port: "{{ cert_checker_email_port }}"
         to: "{{ cert_checker_email }}"
         subject: "{{ owner_id | default('Certificate') }} expiration report"
         body: "{{ lookup('file', tempfile_hosts_certs.path) }}"
-        attach: "{{ tempfile_hosts_certs.path }}"
+        attach: "{{ attachment_tempfile_hosts_certs.path }}"
       run_once: true
       delegate_to: 127.0.0.1
       tags:
@@ -132,9 +140,12 @@
 
 - name: Use the registered var and the file module to remove the temporary file
   ansible.builtin.file:
-    path: "{{ tempfile_hosts_certs.path }}"
+    path: "{{ item }}"
     state: absent
+  loop:
+    - "{{ attachment_tempfile_hosts_certs.path }}/expiring_certificates.csv"
+    - "{{ attachment_tempfile_hosts_certs.path }}"
   run_once: true
-  when: tempfile_hosts_certs.path is defined
+  when: attachment_tempfile_hosts_certs.path is defined
   tags:
     - cert_checker_cleanup
