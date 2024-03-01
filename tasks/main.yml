@@ -1,11 +1,5 @@
 ---
 
-- name: Validate variable inputs
-  ansible.builtin.include_tasks:
-    file: assert.yml
-  tags:
-    - cert_checker_assert
-
 - name: Check over SSH to see if TLS port is listening.
   ansible.builtin.wait_for:
     port: "{{ cert_checker_tls_port }}"
@@ -70,7 +64,8 @@
   # for get_certificate
   delegate_to: "{{ (ansible_connection | lower == 'winrm') | ternary('127.0.0.1', inventory_hostname) }}"
   failed_when:
-    - cert.msg is defined AND NOT cert.msg.find('required Python library')
+    - cert.msg is defined
+    - NOT cert.msg is search('required Python library')
   tags:
     - cert_checker_get_certificate
 
@@ -83,7 +78,7 @@
   delegate_to: "127.0.0.1"
   when:
     - cert.msg is defined
-    - '"Cannot detect the required Python library cryptography" in cert.msg'
+    - cert.msg is search('required Python library')
   tags:
     - cert_checker_get_certificate
 

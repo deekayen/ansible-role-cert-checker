@@ -1,10 +1,10 @@
 ---
 
 # Comma-delimited list of email addresses
-cert_checker_email: ''
+cert_checker_email: "{{ undef(hint='You must specify an email to receive reports.') }}"
 
 # Hostname of an email relay offering SMTP services
-cert_checker_email_host: ''
+cert_checker_email_host: "{{ undef(hint='You must specify an email relay hostname.') }}"
 
 # WHich port to use on email_host for SMTP
 cert_checker_email_port: 25
