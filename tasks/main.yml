@@ -73,13 +73,6 @@
   tags:
     - cert_checker_get_certificate
 
-- name: Print cert
-  ansible.builtin.debug:
-    var: cert
-    verbosity: 2
-  tags:
-    - cert_checker_debug
-
 - name: Create temporary file attaching to email later
   ansible.builtin.tempfile:
     state: file
@@ -151,6 +144,10 @@
       ansible.builtin.copy:
         src: "{{ attachment_tempfile_hosts_certs.path }}"
         dest: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
+      run_once: true
+      delegate_to: 127.0.0.1
+      tags:
+        - cert_checker_copy
 
     - name: Email the results
       community.general.mail:
