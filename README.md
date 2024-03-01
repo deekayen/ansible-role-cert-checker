@@ -9,6 +9,22 @@ This is a role used to inspect remote machines for listening TLS services based 
 
 ## Role Variables
 
+```
+# Comma-delimited list of email addresses
+cert_checker_email: ''
+
+# Hostname of an email relay offering SMTP services
+cert_checker_email_host: ''
+
+# WHich port to use on email_host for SMTP
+cert_checker_email_port: 25
+
+# In days, send alerts for any certificates which expire in fewer than this
+cert_checker_notification_window: 45
+
+# Which port to interrogate for a TLS listener
+cert_checker_tls_port: 443
+```
 
 ## Dependencies
 
@@ -26,7 +42,11 @@ This is a role used to inspect remote machines for listening TLS services based 
       gather_facts: true
 
       roles:
-        - deekayen.cert_checker
+        - role: deekayen.cert_checker
+          vars:
+            cert_checker_email: 'david@example.com,norman@example.com'
+            cert_checker_email_host: 'mail.example.com'
+            cert_checker_notification_window: 31
 
 ## Configurations
 
