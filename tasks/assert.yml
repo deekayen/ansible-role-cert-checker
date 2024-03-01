@@ -17,7 +17,7 @@
       - cert_checker_email is defined
       - cert_checker_email is string
       - ( cert_checker_email | length ) > 1
-      - app_email is match ('^[\W]*([\w+\-.%]+@[\w\-.]+\.[A-Za-z]+[\W]*,{1}[\W]*)*([\w+\-.%]+@[\w\-.]+\.[A-Za-z]+)[\W]*$')
+      - cert_checker_email is match ('^[\W]*([\w+\-.%]+@[\w\-.]+\.[A-Za-z]+[\W]*,{1}[\W]*)*([\w+\-.%]+@[\w\-.]+\.[A-Za-z]+)[\W]*$')
     fail_msg: "'cert_checker_email' must be a comma-delimited list of email addresses"
     success_msg: "'cert_checker_email' is a valid list of emails"
   tags:

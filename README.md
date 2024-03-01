@@ -34,7 +34,6 @@ cert_checker_tls_port: 443
     ---
 
     # cert_checker.yml
-    # Blame David Norman
 
     - name: Query for expiring certificates on TLS listeners.
       hosts: platform_undefined:linux:rhel7_64Guest:rhel8_64Guest
