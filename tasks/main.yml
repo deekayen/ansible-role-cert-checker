@@ -80,7 +80,7 @@
   tags:
     - cert_checker_debug
 
-- name: Create temporary file for tracking expirations
+- name: Create temporary file attaching to email later
   ansible.builtin.tempfile:
     state: file
   run_once: true
@@ -88,6 +88,24 @@
   delegate_to: 127.0.0.1
   tags:
     - cert_checker_tempfile
+
+- name: Create temporary file attaching the email body
+  ansible.builtin.tempfile:
+    state: file
+  run_once: true
+  register: body_tempfile_hosts_certs
+  delegate_to: 127.0.0.1
+  tags:
+    - cert_checker_tempfile
+
+- name: Add header line to the body
+  ansible.builtin.lineinfile:
+    path: "{{ body_tempfile_hosts_certs.path }}"
+    line: "<table><tr><td>FQDN</td><td>CN</td><td>days</td><td>timestamp</td><td>port</td></tr>""
+  run_once: true
+  delegate_to: 127.0.0.1
+  tags:
+    - cert_checker_body_header
 
 - name: Add header line to the CSV file.
   ansible.builtin.lineinfile:
@@ -105,11 +123,21 @@
   block:
     - name: How many days until cert expires
       ansible.builtin.set_fact:
-        expire_days: "{{ (( cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ')) ).days }}"
+        expire_days: "{{ (( cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))).days }}"
       tags:
         - cert_checker_set_fact
 
-    - name: Add expiration information to the temp file
+    - name: Add expiration information to the body file
+      ansible.builtin.lineinfile:
+        path: "{{ body_tempfile_hosts_certs.path }}"
+        line: "<tr><td>{{ ansible_fqdn }}</td><td>{{ cert.subject.CN }}</td><td>{{ expire_days }}</td><td>{{ cert.not_after }}</td><td>{{ cert_checker_tls_port }}</td></tr>"
+      delegate_to: 127.0.0.1
+      # these are actually treated as AnsibleUnsafeText unless you convert them
+      when: ( expire_days | int ) < ( cert_checker_notification_window | int )
+      tags:
+        - cert_checker_body_row
+
+    - name: Add expiration information to the CSV file
       ansible.builtin.lineinfile:
         path: "{{ attachment_tempfile_hosts_certs.path }}"
         line: "{{ ansible_fqdn }},{{ cert.subject.CN }},{{ expire_days }},{{ cert.not_after }},{{ cert_checker_tls_port }}"
@@ -122,7 +150,7 @@
     - name: Rename the temp file to CSV
       ansible.builtin.copy:
         src: "{{ attachment_tempfile_hosts_certs.path }}"
-        dest: "{{ attachment_tempfile_hosts_certs.path | dirname}}/expiring_certificates.csv"
+        dest: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
 
     - name: Email the results
       community.general.mail:
@@ -130,9 +158,10 @@
         host: "{{ cert_checker_email_host }}"
         port: "{{ cert_checker_email_port }}"
         to: "{{ cert_checker_email }}"
+        subtype: html
         subject: "{{ owner_id | default('Certificate') }} expiration report"
-        body: "{{ lookup('file', attachment_tempfile_hosts_certs.path) }}"
-        attach: "{{ attachment_tempfile_hosts_certs.path }}"
+        body: "{{ lookup('file', body_tempfile_hosts_certs.path) }}</table>"
+        attach: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
       run_once: true
       delegate_to: 127.0.0.1
       tags:
