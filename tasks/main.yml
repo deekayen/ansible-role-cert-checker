@@ -6,20 +6,6 @@
   tags:
     - cert_checker_assert
 
-- name: Include linux-specific tasks
-  ansible.builtin.include_tasks:
-    file: linux.yml
-  tags:
-    - cert_checker_linux
-  when: ansible_connection | lower == 'ssh'
-
-- name: Include Windows-specific tasks
-  ansible.builtin.include_tasks:
-    file: windows.yml
-  tags:
-    - cert_checker_windows
-  when: ansible_connection | lower == 'winrm'
-
 - name: Check over SSH to see if TLS port is listening.
   ansible.builtin.wait_for:
     port: "{{ cert_checker_tls_port }}"
@@ -31,7 +17,7 @@
     - cert_checker_ssh_port_check
 
 - name: Check over WinRM to see if TLS port is listening.
-  ansible.builtin.win_wait_for:
+  ansible.windows.win_wait_for:
     port: "{{ cert_checker_tls_port }}"
     delay: 0
     timeout: 3
