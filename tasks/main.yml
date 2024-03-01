@@ -52,34 +52,31 @@
 #                        :%@@@@#. :#@@@@#:.
 #                       =@@@@@@@*.*@@@@@@@:
 
-- name: Check for crypto libs needed for localhost detection
-  community.general.python_requirements_info:
-    dependencies:
-      - cryptography >= 1.6
-  register: crypto_requirement
-
-- name: Query certificate by loopback
-  when: crypto_requirement.not_found is not defined or (crypto_requirement.not_found | length) == 0
+- name: Limit tasks to SSH connections
+  when: ansible_connection | lower == 'ssh'
   block:
-  # This delegates to the ansible controller for Windows
-  - name: Get a cert from an https port
-    community.crypto.get_certificate:
-      host: "{{ ansible_fqdn }}"
-      port: "{{ cert_checker_tls_port }}"
-    register: cert
-    # Only attempt remote connections for Windows
-    # because we need python cryptography >= 1.6
-    # for get_certificate
-    failed_when:
-      - cert.msg is defined
-      - '"required Python library" not in cert.msg'
-    tags:
-      - cert_checker_get_certificate
+    - name: Check for crypto libs needed for localhost detection
+      community.general.python_requirements_info:
+        dependencies:
+          - cryptography >= 1.6
+      register: crypto_requirement
+
+    - name: Get a cert from an https port
+      community.crypto.get_certificate:
+        host: "{{ ansible_fqdn }}"
+        port: "{{ cert_checker_tls_port }}"
+      register: cert
+      # Only attempt remote connections for Windows
+      # because we need python cryptography >= 1.6
+      # for get_certificate
+      delegate_to: (crypto_requirement.not_found is defined) | ternary('127.0.0.1', inventory_hostname)
+      failed_when:
+        - cert.msg is defined
+        - '"required Python library" not in cert.msg'
+      tags:
+        - cert_checker_get_certificate
 
 - name: Pull certificates remotely when crypto libs are not found
-  when:
-    - crypto_requirement.not_found is defined
-    - '"cryptography" in crypto_requirement.not_found'
   block:
   # Do this instead of trying to install python cryptography libs on every endpoint.
   - name: Fallback to remote host cert retrieval
@@ -88,9 +85,7 @@
       port: "{{ cert_checker_tls_port }}"
     register: cert
     delegate_to: "127.0.0.1"
-    when:
-      - cert.msg is defined
-      - cert.msg is search('required Python library')
+    when: ansible_connection | lower == 'winrm'
     tags:
       - cert_checker_get_certificate
 
