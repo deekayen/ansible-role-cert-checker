@@ -1,0 +1,16 @@
+---
+
+# Comma-delimited list of email addresses
+cert_checker_email: ''
+
+# Hostname of an email relay offering SMTP services
+cert_checker_email_host: ''
+
+# WHich port to use on email_host for SMTP
+cert_checker_email_port: 25
+
+# In days, send alerts for any certificates which expire in fewer than this
+cert_checker_notification_window: 45
+
+# Which port to interrogate for a TLS listener
+cert_checker_tls_port: 443

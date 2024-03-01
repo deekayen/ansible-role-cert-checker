@@ -1,0 +1,24 @@
+---
+
+- name: Make sure the email relay hostname is configured.
+  ansible.builtin.assert:
+    that:
+      - cert_checker_email_host is defined
+      - ( cert_checker_email_host | length ) > 1
+    fail_msg: "'cert_checker_email_host' must be set to an email relay"
+    success_msg: "'cert_checker_email_host' is a valid string"
+  tags:
+    - cert_checker_assert_host
+
+# Tries to validate a comma delimited list.
+- name: Validate email address input
+  ansible.builtin.assert:
+    that:
+      - cert_checker_email is defined
+      - cert_checker_email is string
+      - ( cert_checker_email | length ) > 1
+      - app_email is match ('^[\W]*([\w+\-.%]+@[\w\-.]+\.[A-Za-z]+[\W]*,{1}[\W]*)*([\w+\-.%]+@[\w\-.]+\.[A-Za-z]+)[\W]*$')
+    fail_msg: "'cert_checker_email' must be a comma-delimited list of email addresses"
+    success_msg: "'cert_checker_email' is a valid list of emails"
+  tags:
+    - cert_checker_assert_email

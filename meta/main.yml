@@ -1,0 +1,20 @@
+---
+
+galaxy_info:
+  role_name: cert_checker
+  namespace: deekayen
+  author: David Norman
+  description: Inspect remote machines for listening TLS services based on their localhost loopback.
+
+  github_branch: main
+  issue_tracker_url: https://github.com/deekayen/ansible-role-cert-checker/issues
+
+  license: Apache-2.0
+
+  min_ansible_version: '2.13'
+
+collections:
+  - ansible.windows
+  - community.general
+
+dependencies: []

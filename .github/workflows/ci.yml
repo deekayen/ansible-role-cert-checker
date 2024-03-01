@@ -1,0 +1,35 @@
+---
+
+name: CI
+'on':
+  pull_request:
+  push:
+    branches:
+      - main
+
+defaults:
+  run:
+    working-directory: 'deekayen.cert_checker'
+
+jobs:
+
+  test:
+    name: Linting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the codebase.
+        uses: actions/checkout@v4.1.1
+        with:
+          path: 'deekayen.cert_checker'
+
+      - name: Set up Python 3.
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install test dependencies.
+        run: pip install --upgrade --upgrade-strategy eager -r requirements.txt
+
+      - name: Run ansible-lint.
+        run: ansible-lint .

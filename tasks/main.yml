@@ -1,0 +1,154 @@
+---
+
+- name: Validate variable inputs
+  ansible.builtin.include_tasks:
+    file: assert.yml
+  tags:
+    - cert_checker_assert
+
+- name: Include linux-specific tasks
+  ansible.builtin.include_tasks:
+    file: linux.yml
+  tags:
+    - cert_checker_linux
+  when: ansible_connection | lower == 'ssh'
+
+- name: Include Windows-specific tasks
+  ansible.builtin.include_tasks:
+    file: windows.yml
+  tags:
+    - cert_checker_windows
+  when: ansible_connection | lower == 'winrm'
+
+- name: Check over SSH to see if TLS port is listening.
+  ansible.builtin.wait_for:
+    port: "{{ cert_checker_tls_port }}"
+    delay: 0
+    timeout: 3
+  register: listener
+  when: ansible_connection | lower == 'ssh'
+  tags:
+    - cert_checker_ssh_port_check
+
+- name: Check over WinRM to see if TLS port is listening.
+  ansible.builtin.win_wait_for:
+    port: "{{ cert_checker_tls_port }}"
+    delay: 0
+    timeout: 3
+  register: listener
+  when: ansible_connection | lower == 'winrm'
+  tags:
+    - cert_checker_winrm_port_check
+
+# Call on the powers of certbot, sort of.
+#     ...                                              .. -*******:
+#  .:*****-.                                          :+*.=*******:
+# .=*+...=*+                                          :+*.=*******:
+# :*+.   .=*- .+-  +:.                        .+  -+. :+*.=*******:
+# -*-     -***%@#*********************************#@#***************+.
+# :*=    .=*+:-@@@@@*-------------------------*@@@@@-::::::::::::::::.
+# .+*:. .:**.   -%*.............::::...........:*%-.
+#  .=**=**+.    :*=.........:*@@@@@@@#-.........+*
+#   ...::..     :*+........+@@#:....+@@*.......:+*.
+#               :**.......-@@=      .-@@+......:+*.
+#               :**.......-@@....  ..:#@*......-**:
+#               -**.......-@@.#@: :%%:#@*......-**-
+#               -**.......-@@..-===-.:%@*......-**=
+#              :+::*......=@@@@@@@@@@@@@*.....:+::*:
+#              .+-=**=::::#@@@@@@@@@@@@@#:::-=**=-+:
+#               ..=******@@@@@@%***@@@@@@@#*****-..
+#                  .=***%@@@@@@@#*#@@@@@@@%***=.
+#                    .:+%@@@@@@@%*%@@@@@@@@=:.
+#                      .+@@@@@@@%*#@@@@@@@#
+#                       :@@@@@@@#*#@@@@@@@:
+#                        :%@@@@@@@@@@@@@%-.
+#                         .+@@@@@@@@@@@*
+#                         .=**#%+**%#**=
+#                         .=****. :****=
+#                         .+=-++. :*=-+=.
+#                         .+:.:+. :+. :*.
+#                         .=****. :****=
+#                         .=****. :****=
+#                        :%@@@@#. :#@@@@#:.
+#                       =@@@@@@@*.*@@@@@@@:
+
+
+# This delegates to the ansible controller
+# because we need python cryptography >= 1.6
+- name: Get a cert from an https port
+  community.crypto.get_certificate:
+    host: "{{ ansible_fqdn }}"
+    port: "{{ cert_checker_tls_port }}"
+  register: cert
+  ignore_errors: true
+  tags:
+    - cert_checker_get_certificate
+
+- name: Print cert
+  ansible.builtin.debug:
+    var: cert
+    verbosity: 2
+  tags:
+    - cert_checker_debug
+
+- name: Create temporary file for tracking expirations
+  ansible.builtin.tempfile:
+    state: file
+  run_once: true
+  register: tempfile_hosts_certs
+  delegate_to: 127.0.0.1
+  tags:
+    - cert_checker_tempfile
+
+- name: Add header line to the CSV file.
+  ansible.builtin.lineinfile:
+    path: "{{ tempfile_hosts_certs.path }}"
+    line: "FQDN,CN,expiration,timestamp,port"
+  run_once: true
+  delegate_to: 127.0.0.1
+  tags:
+    - cert_checker_csv_header
+
+- name: Handle cert findings, if there are any.
+  when:
+    - cert.not_after is defined
+    - cert.not_after | length > 0
+  block:
+    - name: How many days until cert expires
+      ansible.builtin.set_fact:
+        expire_days: "{{ (( cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ')) ).days }}"
+      tags:
+        - cert_checker_set_fact
+
+    - name: Add expiration information to the temp file
+      ansible.builtin.lineinfile:
+        path: "{{ tempfile_hosts_certs.path }}"
+        line: "{{ ansible_fqdn }},{{ cert.subject.CN }},{{ expire_days }},{{ cert.not_after }},{{ cert_checker_tls_port }}"
+      delegate_to: 127.0.0.1
+      # these are actually treated as AnsibleUnsafeText unless you convert them
+      when: ( expire_days | int ) < ( cert_checker_notification_window | int )
+      tags:
+        - cert_checker_csv_row
+
+    - name: Email the results
+      community.general.mail:
+        sender: "Ansible cert_checker by deekayen"
+        host: "{{ cert_checker_email_host }}"
+        port: "{{ cert_checker_email_port }}"
+        to: "{{ cert_checker_email }}"
+        subject: "{{ owner_id | default('Certificate') }} expiration report"
+        body: "{{ lookup('file', tempfile_hosts_certs.path) }}"
+        attach: "{{ tempfile_hosts_certs.path }}"
+      run_once: true
+      delegate_to: 127.0.0.1
+      tags:
+        - cert_checker_mail
+
+- name: Use the registered var and the file module to remove the temporary file
+  ansible.builtin.file:
+    path: "{{ tempfile_hosts_certs.path }}"
+    state: absent
+  run_once: true
+  when: tempfile_hosts_certs.path is defined
+  tags:
+    - cert_checker_cleanup
