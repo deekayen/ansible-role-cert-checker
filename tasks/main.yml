@@ -172,6 +172,7 @@
     - "{{ attachment_tempfile_hosts_certs.path }}/expiring_certificates.csv"
     - "{{ attachment_tempfile_hosts_certs.path }}"
   run_once: true
+  delegate_to: 127.0.0.1
   when: attachment_tempfile_hosts_certs.path is defined
   tags:
     - cert_checker_cleanup
