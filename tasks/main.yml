@@ -85,7 +85,7 @@
       port: "{{ cert_checker_tls_port }}"
     register: cert
     delegate_to: "127.0.0.1"
-    when: ansible_connection | lower == 'winrm'
+    when: (ansible_connection | lower == 'winrm') or (crypto_requirement.not_found is defined and "cryptography" in crypto_requirement.not_found)
     tags:
       - cert_checker_get_certificate
 
