@@ -58,7 +58,7 @@
     - name: Check for crypto libs needed for localhost detection
       community.general.python_requirements_info:
         dependencies:
-          - cryptography >= 1.6
+          - cryptography>1.5.3
       register: crypto_requirement
 
     - name: Get a cert from an https port
