@@ -78,16 +78,15 @@
 
 - name: Pull certificates remotely when crypto libs are not found
   block:
-  # Do this instead of trying to install python cryptography libs on every endpoint.
-  - name: Fallback to remote host cert retrieval
-    community.crypto.get_certificate:
-      host: "{{ ansible_fqdn }}"
-      port: "{{ cert_checker_tls_port }}"
-    register: cert
-    delegate_to: "127.0.0.1"
-    when: (ansible_connection | lower == 'winrm') or (crypto_requirement.not_found is defined and "cryptography" in crypto_requirement.not_found)
-    tags:
-      - cert_checker_get_certificate
+    - name: Fallback to remote host cert retrieval
+      community.crypto.get_certificate:
+        host: "{{ ansible_fqdn }}"
+        port: "{{ cert_checker_tls_port }}"
+      register: cert
+      delegate_to: "127.0.0.1"
+      when: (ansible_connection | lower == 'winrm') or (crypto_requirement.not_found is defined and "cryptography" in crypto_requirement.not_found)
+      tags:
+        - cert_checker_get_certificate
 
 - name: Create temporary file attaching to email later
   ansible.builtin.tempfile:
@@ -137,14 +136,19 @@
   block:
     - name: How many days until cert expires
       ansible.builtin.set_fact:
-        expire_days: "{{ (( cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))).days }}"
+        expire_days: "{{ ((cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))).days }}"
       tags:
         - cert_checker_set_fact
 
     - name: Add expiration information to the body file
       ansible.builtin.lineinfile:
         path: "{{ body_tempfile_hosts_certs.path }}"
-        line: "<tr><td>{{ ansible_fqdn }}</td><td>{{ cert.subject.CN }}</td><td>{{ expire_days }}</td><td>{{ cert.not_after }}</td><td>{{ cert_checker_tls_port }}</td></tr>"
+        line: >
+          <tr><td>{{ ansible_fqdn }}</td>
+          <td>{{ cert.subject.CN }}</td>
+          <td>{{ expire_days }}</td
+          <td>{{ cert.not_after }}</td>
+          <td>{{ cert_checker_tls_port }}</td></tr>
       delegate_to: 127.0.0.1
       # these are actually treated as AnsibleUnsafeText unless you convert them
       when: ( expire_days | int ) < ( cert_checker_notification_window | int )
