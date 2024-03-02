@@ -161,29 +161,29 @@
       tags:
         - cert_checker_csv_row
 
-    - name: Rename the temp file to CSV
-      ansible.builtin.copy:
-        src: "{{ attachment_tempfile_hosts_certs.path }}"
-        dest: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
-      run_once: true
-      delegate_to: 127.0.0.1
-      tags:
-        - cert_checker_copy
+- name: Rename the temp file to CSV
+  ansible.builtin.copy:
+    src: "{{ attachment_tempfile_hosts_certs.path }}"
+    dest: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
+  run_once: true
+  delegate_to: 127.0.0.1
+  tags:
+    - cert_checker_copy
 
-    - name: Email the results
-      community.general.mail:
-        sender: "{{ cert_checker_email_sender }}"
-        host: "{{ cert_checker_email_host }}"
-        port: "{{ cert_checker_email_port }}"
-        to: "{{ cert_checker_email }}"
-        subtype: html
-        subject: "{{ owner_id | default('Certificate') }} expiration report"
-        body: "{{ lookup('file', body_tempfile_hosts_certs.path) }}</table>"
-        attach: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
-      run_once: true
-      delegate_to: 127.0.0.1
-      tags:
-        - cert_checker_mail
+- name: Email the results
+  community.general.mail:
+    sender: "{{ cert_checker_email_sender }}"
+    host: "{{ cert_checker_email_host }}"
+    port: "{{ cert_checker_email_port }}"
+    to: "{{ cert_checker_email }}"
+    subtype: html
+    subject: "{{ owner_id | default('Certificate') }} expiration report"
+    body: "{{ lookup('file', body_tempfile_hosts_certs.path) }}</table>"
+    attach: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
+  run_once: true
+  delegate_to: 127.0.0.1
+  tags:
+    - cert_checker_mail
 
 - name: Use the registered var and the file module to remove the temporary file
   ansible.builtin.file:
