@@ -1,0 +1,10 @@
+---
+- name: Apply the cert_checker role for a syntax check.
+  hosts: localhost
+  gather_facts: false
+
+  roles:
+    - role: deekayen.cert_checker
+      vars:
+        cert_checker_email: ops@example.com
+        cert_checker_email_host: mail.example.com

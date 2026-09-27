@@ -1,0 +1,18 @@
+---
+- name: Assert the report recipients look like e-mail addresses.
+  ansible.builtin.assert:
+    that:
+      - cert_checker_email | split(',') | map('trim') | reject('match', '^[^@\s]+@[^@\s]+$') | list | length == 0
+    fail_msg: "cert_checker_email must be a comma-delimited list of e-mail addresses, got: {{ cert_checker_email }}"
+    quiet: true
+
+- name: Assert the ports and notification window are sensible.
+  ansible.builtin.assert:
+    that:
+      - cert_checker_email_port | int >= 1 and cert_checker_email_port | int <= 65535
+      - cert_checker_tls_port | int >= 1 and cert_checker_tls_port | int <= 65535
+      - cert_checker_notification_window | int >= 1
+    fail_msg: >-
+      cert_checker_email_port and cert_checker_tls_port must be TCP ports and
+      cert_checker_notification_window at least one day.
+    quiet: true

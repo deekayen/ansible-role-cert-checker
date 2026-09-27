@@ -1,0 +1,35 @@
+---
+argument_specs:
+  main:
+    short_description: Report TLS certificates that are about to expire.
+    description:
+      - Checks each host's own TLS listener, reads its certificate, and
+        e-mails an HTML table and CSV of certificates that expire within the
+        notification window.
+    author:
+      - David Norman
+    options:
+      cert_checker_email:
+        type: str
+        required: true
+        description: Comma-delimited list of report recipients.
+      cert_checker_email_host:
+        type: str
+        required: true
+        description: SMTP relay the controller sends the report through.
+      cert_checker_email_port:
+        type: int
+        default: 25
+        description: SMTP relay port.
+      cert_checker_notification_window:
+        type: int
+        default: 45
+        description: Report certificates that expire in fewer than this many days.
+      cert_checker_tls_port:
+        type: int
+        default: 443
+        description: Port to check for a TLS listener.
+      owner_id:
+        type: str
+        default: Certificate
+        description: Prefix for the report's e-mail subject.

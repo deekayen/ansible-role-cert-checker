@@ -1,8 +1,7 @@
 ---
-
 galaxy_info:
-  role_name: cert_checker
   namespace: deekayen
+  role_name: cert_checker
   author: David Norman
   description: Inspect remote machines for listening TLS services based on their localhost loopback.
 
@@ -10,11 +9,19 @@ galaxy_info:
   issue_tracker_url: https://github.com/deekayen/ansible-role-cert-checker/issues
 
   license: Apache-2.0
+  min_ansible_version: "2.15"
 
-  min_ansible_version: '2.13'
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+    - name: Windows
+      versions:
+        - all
 
-collections:
-  - ansible.windows
-  - community.general
+  galaxy_tags:
+    - tls
+    - certificates
+    - monitoring
 
 dependencies: []

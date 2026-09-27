@@ -6,17 +6,22 @@ This is a role used to inspect remote machines for listening TLS services based 
 
 ## Requirements
 
+The controller sends the report through `community.general.mail` and reads
+certificates with `community.crypto.get_certificate`, which needs the Python
+`cryptography` library wherever it runs. Hosts without it are checked from
+the controller instead. Linux and Windows hosts are told apart by their
+gathered facts, so any connection type works.
 
 ## Role Variables
 
 ```
-# Comma-delimited list of email addresses
-cert_checker_email: ''
+# Comma-delimited list of email addresses (required)
+cert_checker_email:
 
-# Hostname of an email relay offering SMTP services
-cert_checker_email_host: ''
+# Hostname of an email relay offering SMTP services (required)
+cert_checker_email_host:
 
-# WHich port to use on email_host for SMTP
+# Which port to use on email_host for SMTP
 cert_checker_email_port: 25
 
 # In days, send alerts for any certificates which expire in fewer than this

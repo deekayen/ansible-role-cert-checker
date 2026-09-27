@@ -1,22 +1,26 @@
 ---
+- name: Validate role variables.
+  ansible.builtin.import_tasks: assert.yml
+  tags:
+    - always
 
-- name: Check over SSH to see if TLS port is listening.
+- name: Check on Linux to see if TLS port is listening.
   ansible.builtin.wait_for:
     port: "{{ cert_checker_tls_port }}"
     delay: 0
     timeout: 3
   register: listener
-  when: ansible_connection | lower == 'ssh'
+  when: ansible_facts.os_family != 'Windows'
   tags:
     - cert_checker_ssh_port_check
 
-- name: Check over WinRM to see if TLS port is listening.
+- name: Check on Windows to see if TLS port is listening.
   ansible.windows.win_wait_for:
     port: "{{ cert_checker_tls_port }}"
     delay: 0
     timeout: 3
   register: listener
-  when: ansible_connection | lower == 'winrm'
+  when: ansible_facts.os_family == 'Windows'
   tags:
     - cert_checker_winrm_port_check
 
@@ -52,66 +56,74 @@
 #                        :%@@@@#. :#@@@@#:.
 #                       =@@@@@@@*.*@@@@@@@:
 
-- name: Limit tasks to SSH connections
-  when: ansible_connection | lower == 'ssh'
+- name: Limit tasks to Linux hosts.
+  when: ansible_facts.os_family != 'Windows'
   block:
-    - name: Check for crypto libs needed for localhost detection
+    - name: Check for crypto libs needed for localhost detection.
       community.general.python_requirements_info:
         dependencies:
           - cryptography>1.5.3
       register: crypto_requirement
 
-    - name: Get a cert from an https port
+    - name: Get a cert from an https port.
       community.crypto.get_certificate:
-        host: "{{ ansible_fqdn }}"
+        host: "{{ ansible_facts.fqdn }}"
         port: "{{ cert_checker_tls_port }}"
       register: cert
       # Only attempt remote connections for Windows
       # because we need python cryptography >= 1.6
       # for get_certificate
       delegate_to: "{{ (crypto_requirement.not_found is defined) | ternary('127.0.0.1', inventory_hostname) }}"
+      # Reading a TLS certificate needs no privileges on either end.
+      become: false
       failed_when:
         - cert.msg is defined
         - '"required Python library" not in cert.msg'
       tags:
         - cert_checker_get_certificate
 
-- name: Pull certificates remotely when crypto libs are not found
+- name: Pull certificates remotely when crypto libs are not found.
   block:
     - name: Fallback to remote host cert retrieval
       community.crypto.get_certificate:
-        host: "{{ ansible_fqdn }}"
+        host: "{{ ansible_facts.fqdn }}"
         port: "{{ cert_checker_tls_port }}"
       register: cert
       delegate_to: "127.0.0.1"
-      when: (ansible_connection | lower == 'winrm') or (crypto_requirement.not_found is defined and "cryptography" in crypto_requirement.not_found)
+      become: false
+      when: >-
+        ansible_facts.os_family == 'Windows'
+        or (crypto_requirement.not_found is defined and "cryptography" in crypto_requirement.not_found)
       tags:
         - cert_checker_get_certificate
 
-- name: Create temporary file attaching to email later
+- name: Create temporary file attaching to email later.
   ansible.builtin.tempfile:
     state: file
   run_once: true
   register: attachment_tempfile_hosts_certs
   delegate_to: 127.0.0.1
+  become: false
   tags:
     - cert_checker_tempfile
 
-- name: Create temporary file attaching the email body
+- name: Create temporary file attaching the email body.
   ansible.builtin.tempfile:
     state: file
   run_once: true
   register: body_tempfile_hosts_certs
   delegate_to: 127.0.0.1
+  become: false
   tags:
     - cert_checker_tempfile
 
-- name: Add header line to the body
+- name: Add header line to the body.
   ansible.builtin.lineinfile:
     path: "{{ body_tempfile_hosts_certs.path }}"
     line: "<table><tr><td>FQDN</td><td>CN</td><td>days</td><td>timestamp</td><td>port</td></tr>"
   run_once: true
   delegate_to: 127.0.0.1
+  become: false
   tags:
     - cert_checker_body_header
 
@@ -121,10 +133,11 @@
     line: "FQDN,CN,expiration,timestamp,port"
   run_once: true
   delegate_to: 127.0.0.1
+  become: false
   tags:
     - cert_checker_csv_header
 
-- name: Debug cert at verbosity 2
+- name: Debug cert at verbosity 2.
   ansible.builtin.debug:
     var: cert
     verbosity: 2
@@ -134,47 +147,51 @@
     - cert.not_after is defined
     - cert.not_after | length > 0
   block:
-    - name: How many days until cert expires
+    - name: How many days until cert expires.
       ansible.builtin.set_fact:
-        expire_days: "{{ ((cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))).days }}"
+        expire_days: "{{ ((cert.not_after | to_datetime('%Y%m%d%H%M%SZ')) - (ansible_facts.date_time.iso8601 | to_datetime('%Y-%m-%dT%H:%M:%SZ'))).days }}"
       tags:
         - cert_checker_set_fact
 
-    - name: Add expiration information to the body file
+    - name: Add expiration information to the body file.
       ansible.builtin.lineinfile:
         path: "{{ body_tempfile_hosts_certs.path }}"
         line: >
-          <tr><td>{{ ansible_fqdn }}</td>
+          <tr><td>{{ ansible_facts.fqdn }}</td>
           <td>{{ cert.subject.CN }}</td>
-          <td>{{ expire_days }}</td
+          <td>{{ expire_days }}</td>
           <td>{{ cert.not_after }}</td>
           <td>{{ cert_checker_tls_port }}</td></tr>
       delegate_to: 127.0.0.1
+      become: false
       # these are actually treated as AnsibleUnsafeText unless you convert them
       when: ( expire_days | int ) < ( cert_checker_notification_window | int )
       tags:
         - cert_checker_body_row
 
-    - name: Add expiration information to the CSV file
+    - name: Add expiration information to the CSV file.
       ansible.builtin.lineinfile:
         path: "{{ attachment_tempfile_hosts_certs.path }}"
-        line: "{{ ansible_fqdn }},{{ cert.subject.CN }},{{ expire_days }},{{ cert.not_after }},{{ cert_checker_tls_port }}"
+        line: "{{ ansible_facts.fqdn }},{{ cert.subject.CN }},{{ expire_days }},{{ cert.not_after }},{{ cert_checker_tls_port }}"
       delegate_to: 127.0.0.1
+      become: false
       # these are actually treated as AnsibleUnsafeText unless you convert them
       when: ( expire_days | int ) < ( cert_checker_notification_window | int )
       tags:
         - cert_checker_csv_row
 
-- name: Rename the temp file to CSV
+- name: Rename the temp file to CSV.
   ansible.builtin.copy:
     src: "{{ attachment_tempfile_hosts_certs.path }}"
     dest: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
+    mode: "0600"
   run_once: true
   delegate_to: 127.0.0.1
+  become: false
   tags:
     - cert_checker_copy
 
-- name: Email the results
+- name: Email the results.
   community.general.mail:
     sender: "{{ cert_checker_email_sender }}"
     host: "{{ cert_checker_email_host }}"
@@ -186,18 +203,21 @@
     attach: "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
   run_once: true
   delegate_to: 127.0.0.1
+  become: false
   tags:
     - cert_checker_mail
 
-- name: Use the registered var and the file module to remove the temporary file
+- name: Remove the temporary report files.
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
   loop:
-    - "{{ attachment_tempfile_hosts_certs.path }}/expiring_certificates.csv"
+    - "{{ attachment_tempfile_hosts_certs.path | dirname }}/expiring_certificates.csv"
     - "{{ attachment_tempfile_hosts_certs.path }}"
+    - "{{ body_tempfile_hosts_certs.path }}"
   run_once: true
   delegate_to: 127.0.0.1
+  become: false
   when: attachment_tempfile_hosts_certs.path is defined
   tags:
     - cert_checker_cleanup

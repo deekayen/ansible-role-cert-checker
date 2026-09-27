@@ -1,5 +1,4 @@
 ---
-
 name: CI
 'on':
   pull_request:
@@ -7,29 +6,33 @@ name: CI
     branches:
       - main
 
-defaults:
-  run:
-    working-directory: 'deekayen.cert_checker'
-
 jobs:
 
-  test:
-    name: Linting
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out the codebase.
-        uses: actions/checkout@v4.1.1
-        with:
-          path: 'deekayen.cert_checker'
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.12'
 
       - name: Install test dependencies.
-        run: pip install --upgrade --upgrade-strategy eager -r requirements.txt
+        run: pip3 install ansible-lint
 
-      - name: Run ansible-lint.
-        run: ansible-lint .
+      - name: Install role dependencies.
+        run: ansible-galaxy install -r tests/requirements.yml
+
+      - name: Lint code.
+        run: ansible-lint --profile production
+
+      - name: Make the role resolvable by its Galaxy name.
+        run: mkdir -p .ansible/roles && ln -sfn "$PWD" .ansible/roles/deekayen.cert_checker
+
+      - name: Syntax check.
+        run: ansible-playbook --syntax-check tests/test.yml -i tests/inventory
+        env:
+          ANSIBLE_ROLES_PATH: .ansible/roles:~/.ansible/roles
